@@ -59,9 +59,12 @@ class Interpreter:
             cmd["C"] = (b2 >> 3) & 0x07
 
         elif opcode == self.spec.OP_SHIFT_RIGHT:
-            # Читаем байты, но не декодируем
-            self.pc += cmd_size
-            return {"A": opcode, "skip": True}  # Помечаем для пропуска
+            # 7 байт: A (8), B (3), C (23), D (13), E (3)
+            b1, b2, b3, b4, b5, b6, b7 = cmd_bytes
+            cmd["B"] = b2 & 0x07
+            cmd["C"] = ((b2 >> 3) & 0x1F) | (b3 << 5) | (b4 << 13) | ((b5 & 0x03) << 21)
+            cmd["D"] = ((b5 >> 2) & 0x3F) | ((b6 & 0x7F) << 6) | ((b7 & 0x1F) << 13)
+            cmd["E"] = (b7 >> 5) & 0x07
 
         self.pc += cmd_size
         return cmd
@@ -103,9 +106,30 @@ class Interpreter:
             else:
                 raise ValueError(f"Выход за границы памяти: {mem_addr}")
 
-        elif "skip" in cmd:
-            # Пропускаем команду сдвига на этом этапе
-            print(f"  SKIP: команда сдвига (код {opcode}) не реализована на этапе 3")
+        elif opcode == self.spec.OP_SHIFT_RIGHT:
+            # Логический сдвиг вправо
+            value_reg = cmd["B"]
+            shift_reg = cmd["C"]
+            offset = cmd["D"]
+            base_reg = cmd["E"]
+
+            value = self.registers[value_reg]
+            shift = self.registers[shift_reg]
+
+            # Логический сдвиг вправо (беззнаковый)
+            if shift >= 32:  # Для 32-битных чисел
+                result = 0
+            else:
+                result = (value >> shift) & 0xFFFFFFFF  # 32-битный результат
+
+            mem_addr = self.registers[base_reg] + offset
+            if 0 <= mem_addr < len(self.data_memory):
+                self.data_memory[mem_addr] = result
+                print(
+                    f"  SHIFT_RIGHT: memory[{self.registers[base_reg]} + {offset}] = R{value_reg} >> R{shift_reg} = {value} >> {shift} = {result}")
+            else:
+                raise ValueError(f"Выход за границы памяти: {mem_addr}")
+
 
     def run(self, program_file, dump_file=None, mem_range=None):
         #Основной цикл интерпретации
@@ -190,19 +214,54 @@ class Interpreter:
             print("✗ Тест копирования массива не пройден")
 
 
+    def test_shift_operation(self):
+        #Тестовая программа для операции сдвига
+        print("=== Тест операции сдвига вправо ===")
+
+        # Инициализация регистров
+        self.registers[0] = 255  # Значение для сдвига
+        self.registers[1] = 2  # Количество сдвигов
+        self.registers[2] = 1000  # Базовый адрес для результата
+
+        # Выполняем сдвиг вручную
+        value = self.registers[0]
+        shift = self.registers[1]
+        result = value >> shift
+
+        # Сохраняем результат в память
+        self.data_memory[1000] = result
+
+        print(f"Тестовые данные:")
+        print(f"  Значение: {value} (0b{value:08b})")
+        print(f"  Сдвиг: {shift}")
+        print(f"  Результат: {result} (0b{result:08b})")
+        print(f"  Сохранено в memory[1000] = {self.data_memory[1000]}")
+
+        # Проверка
+        expected = 255 >> 2  # 63
+        if self.data_memory[1000] == expected:
+            print(f"✓ Тест сдвига пройден успешно")
+            print(f"  Ожидалось: {expected}, Получено: {self.data_memory[1000]}")
+        else:
+            print(f"✗ Тест сдвига не пройден")
+            print(f"  Ожидалось: {expected}, Получено: {self.data_memory[1000]}")
+
+
 def main():
-    parser = argparse.ArgumentParser(description='Интерпретатор УВМ (вариант 24) - Этап 3')
+    parser = argparse.ArgumentParser(description='Интерпретатор УВМ')
     parser.add_argument('--program', help='Бинарный файл программы')
     parser.add_argument('--dump', help='Файл для дампа памяти (CSV)')
     parser.add_argument('--range', help='Диапазон адресов для дампа (start-end)')
-    parser.add_argument('--test', action='store_true', help='Запустить тестовую программу копирования')
+    parser.add_argument('--test', choices=['copy', 'shift'], help='Запустить тестовую программу')
 
     args = parser.parse_args()
 
     interpreter = Interpreter()
 
-    if args.test:
+    if args.test == 'copy':
         interpreter.test_copy_array()
+    elif args.test == 'shift':
+        interpreter.test_shift_operation()
     elif args.program:
         if args.dump and not args.range:
             print("Ошибка: для дампа необходимо указать диапазон --range")
