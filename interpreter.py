@@ -246,7 +246,7 @@ class Interpreter:
             print(f"✗ Тест сдвига не пройден")
             print(f"  Ожидалось: {expected}, Получено: {self.data_memory[1000]}")
 
-        def run_test_task(self):
+    def run_test_task(self):
             """Запуск тестовой задачи: поэлементный сдвиг векторов"""
             print("=== Тестовая задача: поэлементный сдвиг векторов ===")
 
