@@ -246,13 +246,67 @@ class Interpreter:
             print(f"✗ Тест сдвига не пройден")
             print(f"  Ожидалось: {expected}, Получено: {self.data_memory[1000]}")
 
+        def run_test_task(self):
+            """Запуск тестовой задачи: поэлементный сдвиг векторов"""
+            print("=== Тестовая задача: поэлементный сдвиг векторов ===")
+
+            # Инициализация памяти
+            values_addr = 3000
+            shifts_addr = 3100
+            result_addr = 3200
+            vector_length = 5
+
+            # Вектор значений: [128, 64, 32, 16, 8]
+            values = [128, 64, 32, 16, 8]
+            # Вектор сдвигов: [1, 2, 3, 4, 5]
+            shifts = [1, 2, 3, 4, 5]
+            # Ожидаемый результат: [64, 16, 4, 1, 0]
+            expected = [128 >> 1, 64 >> 2, 32 >> 3, 16 >> 4, 8 >> 5]
+
+            # Заполняем память
+            for i in range(vector_length):
+                self.data_memory[values_addr + i] = values[i]
+                self.data_memory[shifts_addr + i] = shifts[i]
+
+            print(f"Вектор значений по адресу {values_addr}: {values}")
+            print(f"Вектор сдвигов по адресу {shifts_addr}: {shifts}")
+            print(f"Ожидаемый результат по адресу {result_addr}: {expected}")
+
+            # Выполняем поэлементный сдвиг
+            for i in range(vector_length):
+                value = self.data_memory[values_addr + i]
+                shift = self.data_memory[shifts_addr + i]
+                result = value >> shift
+                self.data_memory[result_addr + i] = result
+                print(f"  Элемент {i}: {value} >> {shift} = {result}")
+
+            # Проверяем результат
+            success = True
+            actual_results = self.data_memory[result_addr:result_addr + vector_length]
+            for i in range(vector_length):
+                if actual_results[i] != expected[i]:
+                    success = False
+                    print(f"  Ошибка в элементе {i}: ожидалось {expected[i]}, получено {actual_results[i]}")
+
+            if success:
+                print(f"✓ Тестовая задача выполнена успешно")
+                print(f"  Результат: {actual_results}")
+            else:
+                print(f"✗ Тестовая задача не выполнена")
+
+            # Дамп памяти для проверки
+            print(f"\nДамп памяти результатов ({result_addr}-{result_addr + vector_length - 1}):")
+            for i in range(vector_length):
+                print(f"  memory[{result_addr + i}] = {self.data_memory[result_addr + i]}")
+
+            return success
 
 def main():
-    parser = argparse.ArgumentParser(description='Интерпретатор УВМ')
+    parser = argparse.ArgumentParser(description='Интерпретатор УВМ (вариант 24) - Этап 5')
     parser.add_argument('--program', help='Бинарный файл программы')
     parser.add_argument('--dump', help='Файл для дампа памяти (CSV)')
     parser.add_argument('--range', help='Диапазон адресов для дампа (start-end)')
-    parser.add_argument('--test', choices=['copy', 'shift'], help='Запустить тестовую программу')
+    parser.add_argument('--test', choices=['copy', 'shift', 'task'], help='Запустить тестовую программу')
 
     args = parser.parse_args()
 
@@ -262,13 +316,15 @@ def main():
         interpreter.test_copy_array()
     elif args.test == 'shift':
         interpreter.test_shift_operation()
+    elif args.test == 'task':
+        interpreter.run_test_task()
     elif args.program:
         if args.dump and not args.range:
             print("Ошибка: для дампа необходимо указать диапазон --range")
             return
 
         interpreter.run(args.program, args.dump, args.range)
-        print("Программа выполнена успешно")
+        print("✓ Программа выполнена успешно")
     else:
         print("Ошибка: укажите --program или --test")
 
