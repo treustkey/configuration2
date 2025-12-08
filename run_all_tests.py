@@ -1,7 +1,5 @@
-#!/usr/bin/env python3
-"""
-Скрипт для автоматического тестирования всех 5 этапов
-"""
+#Скрипт для автоматического тестирования всех 5 этапов
+
 
 import subprocess
 import os
@@ -13,7 +11,7 @@ sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
 
 def run_command(cmd, description):
-    """Запускает команду и выводит результат"""
+    #Запускает команду и выводит результат
     print(f"\n{'=' * 60}")
     print(f"{description}")
     print(f"Команда: {cmd}")
